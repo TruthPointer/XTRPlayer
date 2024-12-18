@@ -1,0 +1,45 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <RootNamespace>XTRPlayer</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <AssemblyName>XTRPlayer</AssemblyName>
+    <ApplicationIcon>xtr.ico</ApplicationIcon>
+    <Platforms>AnyCPU;x86;x64</Platforms>
+    <Copyright>Ming © 2024</Copyright>
+    <Authors>Ming</Authors>
+    <AssemblyVersion>1.1.2024.0320</AssemblyVersion>
+    <FileVersion>1.1.2024.0320</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="log-xtrzgpd.png" />
+    <None Remove="xtr.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Flyleaf-3.7.44\FlyleafLib.Controls.WPF\FlyleafLib.Controls.WPF.csproj" />
+    <ProjectReference Include="..\Flyleaf-3.7.44\FlyleafLib\FlyleafLib.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <_DeploymentManifestIconFile Remove="xtr.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="MaterialDesignThemes" Version="5.0.0-ci480" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="log-xtrzgpd.png" />
+    <Resource Include="xtr.ico" />
+  </ItemGroup>
+
+  <Target Name="PostPublish" AfterTargets="Publish">
+    <Exec Command="del /S /F /Q &quot;$(PublishDir)FFmpeg\&quot;&#xD;&#xA;rmdir /S /Q &quot;$(PublishDir)FFmpeg\&quot;&#xD;&#xA;del &quot;$(PublishDir)*.pdb&quot;&#xD;&#xA;del &quot;$(PublishDir)*.xml&quot;&#xD;&#xA;&#xD;&#xA;if not exist &quot;$(PublishDir)FFmpeg&quot; mkdir &quot;$(PublishDir)FFmpeg&quot;&#xD;&#xA;&#xD;&#xA;xcopy &quot;$(SolutionDir)FFmpeg\*&quot; &quot;$(PublishDir)FFmpeg\&quot; /E /Y&#xD;&#xA;" />
+  </Target>
+
+
+</Project>

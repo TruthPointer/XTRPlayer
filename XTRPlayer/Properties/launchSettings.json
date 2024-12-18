@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "XTRPlayer": {
+      "commandName": "Project",
+      "nativeDebugging": false
+    }
+  }
+}
