@@ -1,17 +1,20 @@
-﻿using FlyleafLib;
-using FlyleafLib.Controls.WPF;
-using FlyleafLib.MediaPlayer;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.NetworkInformation;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using FlyleafLib;
+using FlyleafLib.Controls.WPF;
+using FlyleafLib.MediaPlayer;
+using Newtonsoft.Json;
 
 namespace XTRPlayer
 {
@@ -27,32 +30,55 @@ namespace XTRPlayer
         const int ACTIVITY_TIMEOUT = 3500;
         public event PropertyChangedEventHandler PropertyChanged;
         //public static string FlyleafLibVer => "FlyleafLib v" + System.Reflection.Assembly.GetAssembly(typeof(Engine)).GetName().Version;
-        public static string FlyleafLibVer => "新唐人中国频道" + GetApplicationVersion();
+        public static string FlyleafLibVer => "新唐人中国频道" + GetApplicationVersion() + PatchProxyInfo();
+        //public static string FlyleafLibVer = FlyleafLibVer1;
 
-        /// <summary>
-        /// Flyleaf Player binded to FlyleafME (This can be swapped and will nto belong to this window)
-        /// </summary>
-        public Player Player { get; set; }
+        /////////////////////////////////////////////////////
+        ///1.内部类
+        #region
+        public class XtrUrl
+        {
+            public string QualityName;
+            public string Url;
+            public XtrUrl(string qualityName, string url)
+            {
+                QualityName = qualityName;
+                Url = url;
+            }
+        }
+        public class Settings //20250208
+        {
+            public string ProxyHost;
+            public int ProxyPort;
+            public Settings(string proxyHost, int proxyPort)
+            {
+                ProxyHost = proxyHost;
+                ProxyPort = proxyPort;
+            }
+        }
+        #endregion
 
-        /// <summary>
-        /// FlyleafME Media Element Control
-        /// </summary>
-        public FlyleafME FlyleafME { get; set; }
-
+        /////////////////////////////////////////////////////
+        ///2.参量
+        #region        
+        public Player Player { get; set; }// Flyleaf Player binded to FlyleafME (This can be swapped and will nto belong to this window)                
+        public FlyleafME FlyleafME { get; set; }// FlyleafME Media Element Control
         public ICommand OpenWindow { get; set; }
         public ICommand CloseWindow { get; set; }
 
         static bool runOnce;
+        static Settings settings = new Settings(PROXY_HOST, PROXY_PORT);
+
         Config playerConfig;
         bool ReversePlaybackChecked;
 
         string SampleVideo = Utils.FindFileBelow("Sample.mp4");
-        const string  URL_NTD= "http://cnhls.ntdtv.com";
-        const string  HOST_NTD= "ntdtv.com";
+        const string URL_NTD = "http://cnhls.ntdtv.com";
+        const string HOST_NTD = "ntdtv.com";
         const string PROXY_HOST = "127.0.0.1";
         const int PROXY_PORT = 8580;
 
-        List<XtrUrl> XtrUrls = new (){
+        List<XtrUrl> XtrUrls = new(){
             new ("低频宽", "http://cnhls.ntdtv.com/cn/live150/playlist.m3u8" ),//first.m3u8?
             new ("中频宽", "http://cnhls.ntdtv.com/cn/live400/playlist.m3u8" ),
             new ("高频宽", "http://cnhls.ntdtv.com/cn/live800/playlist.m3u8" )
@@ -61,22 +87,14 @@ namespace XTRPlayer
         XtrUrl CurrentXtrUrl;
         string DefaultAspectRatioName = "Keep";
         bool IsCheckOpenAsyncRunning = false;
-        public class XtrUrl
-        {
-            public string       QualityName;
-            public string       Url;
-            public XtrUrl(string qualityName, string url)
-            {
-                QualityName = qualityName;
-                Url = url;
-            }
-        }
 
-        /*public bool ShowProgress { get => showProgress; internal set => Set(ref _ShowProgress, value); }
-        internal bool _ShowProgress = false, showProgress = false;
-        public string PlayInfo { get => playInfo; internal set => Set(ref _PlayInfo, value); }
-        internal string _PlayInfo = "", playInfo = "";*/
+        private static string APP_PATH = Directory.GetCurrentDirectory();
+        private string SETTINGS_JSON_FILE = APP_PATH + @"\settings.json";
+        #endregion
 
+        /////////////////////////////////////////////////////
+        ///3.初始化
+        #region
         public MainWindow()
         {
             OpenWindow = new RelayCommandSimple(() => new MainWindow() { Width = Width, Height = Height }.Show());
@@ -115,22 +133,141 @@ namespace XTRPlayer
 
             //20240213
             CurrentXtrUrl = FindXTRUrl(DefaultCNUrlName);
+
+            ParseMainJson();
         }
 
-        private XtrUrl FindXTRUrl(string urlName)
+        private void Window_Initialized(object sender, EventArgs e)
         {
-            return XtrUrls.Find(item => item.QualityName == urlName);
+            if (!File.Exists(Directory.GetCurrentDirectory() + "\\Flyleaf.UIConfig.json"))
+            {
+                Utils.Log("Flyleaf.UIConfig.json 不存在……");
+                ShowAppInfoTips();
+            }
         }
 
-        private Config DefaultConfig()
+        private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-            Config config = new Config();
-            config.Audio.FiltersEnabled = true;         // To allow embedded atempo filter for speed
-            config.Video.GPUAdapter = "";           // Set it empty so it will include it when we save it
-            config.Subtitles.SearchLocal = true;
-            return config;
+            Log("Window_Loaded.......");
+            if (Engine.IsLoaded)
+            {
+                LoadPlayer();
+                FlyleafME.Player = Player;
+                //20240215
+                CurrentXtrUrl = FindXTRUrl(DefaultCNUrlName);
+                //Player.XtrQualityName = DefaultCNUrlName;
+                //Play();
+                Player.UpdateXtrQualityNameAndNotify(CurrentXtrUrl.QualityName);
+                Player.UpdateAspectRatioNameAndNotify(DefaultAspectRatioName);
+            }
+            else
+            {
+                Engine.Loaded += (o, e) =>
+                {
+                    LoadPlayer();
+                    Utils.UIInvokeIfRequired(() => FlyleafME.Player = Player);
+                    //20240215
+                    CurrentXtrUrl = FindXTRUrl(DefaultCNUrlName);
+                    //Player.XtrQualityName = DefaultCNUrlName;
+                    //Play();
+                    Player.UpdateXtrQualityNameAndNotify(CurrentXtrUrl.QualityName);
+                    Player.UpdateAspectRatioNameAndNotify(DefaultAspectRatioName);
+                };
+            }
+
+            if (runOnce)
+                return;
+            runOnce = true;
+
+            if (App.CmdUrl != null)
+                Player.OpenAsync(App.CmdUrl);
+
+
+#if RELEASE
+            // Save Player's Config (First Run)
+            // Ensures that the Control's handle has been created and the renderer has been fully initialized (so we can save also the filters parsed by the library)
+            if (!playerConfig.Loaded)
+            {
+                try
+                {
+                    //Utils.AddFirewallRule();
+                    playerConfig.Save("Flyleaf.Config.json");
+                }
+                catch { }
+            }
+
+            // Stops Logging (First Run)
+            if (!Engine.Config.Loaded)
+            {
+                Engine.Config.LogOutput = null;
+                Engine.Config.LogLevel = LogLevel.Quiet;
+                //Engine.Config.FFmpegDevices  = false;
+
+                try
+                { Engine.Config.Save("Flyleaf.Engine.json"); }
+                catch { }
+            }
+#endif
         }
 
+        private void ParseMainJson()
+        {
+            try
+            {
+                if (!File.Exists(SETTINGS_JSON_FILE))
+                {
+                    SaveDefaultToMainJson();
+                    return;
+                }
+                var jss = new JsonSerializerSettings();
+                string jsonText = File.ReadAllText(SETTINGS_JSON_FILE);
+                Settings s = JsonConvert.DeserializeObject<Settings>(jsonText, jss);
+                Log("ParseMainJson: Parse Json OK...");
+                if (!ValidateProxy(s)) return;
+                settings.ProxyHost = s.ProxyHost;
+                settings.ProxyPort = s.ProxyPort;
+                Log("ParseMainJson: Check Proxy OK...");
+            }
+            catch (Exception e)
+            {
+                Log("ParseMainJson ERROR: " + e.Message);
+            }
+        }
+
+        private bool ValidateProxy(Settings settings)
+        {
+            if (settings == null) return false;
+
+            if (settings.ProxyHost == null || !Regex.IsMatch(settings.ProxyHost, @"^([\w-]+\.)+[\w-]+(/[\w-./?%&=]*)?$"))
+            {
+                MessageBoxError("代理主机配置错误！\n请修改settings.json，并从新运行本程序。\n若不修改，程序将使用默认值。");
+                return false;
+            }
+            if (settings.ProxyPort < 1024 || settings.ProxyPort >= 65535)
+            {
+                MessageBoxError("代理端口配置错误，应在1024至65536之间！\n请修改settings.json，并从新运行本程序。\n若不修改，程序将使用默认值。");
+                return false;
+            }
+            return true;
+        }
+
+        private void SaveDefaultToMainJson()
+        {
+            try
+            {
+                string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
+                File.WriteAllText(SETTINGS_JSON_FILE, json);
+            }
+            catch (Exception e1)
+            {
+                Log(e1.Message);
+            }
+        }
+        #endregion
+
+        /////////////////////////////////////////////////////
+        ///4.播放控制
+        #region
         private void LoadPlayer()
         {
             // NOTE: Loads/Saves configs only in RELEASE mode
@@ -153,7 +290,7 @@ namespace XTRPlayer
             {
                 playerConfig.Demuxer.FormatOpt.Remove("http_proxy");
             }
-            playerConfig.Demuxer.FormatOpt.Add("http_proxy", $"http://{PROXY_HOST}:{PROXY_PORT}/");
+            playerConfig.Demuxer.FormatOpt.Add("http_proxy", $"http://{settings.ProxyHost}:{settings.ProxyPort}/");
 
 #if DEBUG
             // Testing audio filters
@@ -304,6 +441,19 @@ namespace XTRPlayer
                 playerConfig.Player.KeyBindings.AddCustom(Key.W, true, () => GetWindowFromPlayer(Player).Close(), "Close Window", false, true, false);
         }
 
+        private void Play()
+        {
+            if (CurrentXtrUrl != null)
+            {
+                FlyleafME.Player.XtrQualityName = CurrentXtrUrl.QualityName;
+                FlyleafME.Player.OpenAsync(CurrentXtrUrl.Url);
+                CurrentXtrUrl = null;
+                return;
+            }
+            //20240215 debug:
+            //FlyleafME.Player.OpenAsync(SampleVideo);
+        }
+
         private bool CheckInternetConnection_NoProxy()
         {
             try
@@ -338,9 +488,9 @@ namespace XTRPlayer
         {
             try
             {
-                WebProxy myProxy=new WebProxy(PROXY_HOST, PROXY_PORT);
-                var httpClientHandler = new HttpClientHandler{Proxy = myProxy};
-                HttpClient client = new HttpClient(handler: httpClientHandler,disposeHandler:true);
+                WebProxy myProxy = new WebProxy(settings.ProxyHost, settings.ProxyPort);
+                var httpClientHandler = new HttpClientHandler { Proxy = myProxy };
+                HttpClient client = new HttpClient(handler: httpClientHandler, disposeHandler: true);
                 using HttpResponseMessage response = await client.GetAsync(URL_NTD);
                 Utils.Log($"[CheckInternetConnection]: {response.StatusCode}");
                 return response.StatusCode == HttpStatusCode.OK;
@@ -405,8 +555,6 @@ namespace XTRPlayer
             });
         }
 
-        //private void Player_PlaybackStopped(object sender, PlaybackStoppedArgs e) => throw new System.NotImplementedException();
-
         private static MainWindow GetWindowFromPlayer(Player player)
         {
             FlyleafHost flhost = null;
@@ -426,94 +574,105 @@ namespace XTRPlayer
 
             MainWindow mwNew = new()
             {
-                Width   = mw.Width,
-                Height  = mw.Height,
+                Width = mw.Width,
+                Height = mw.Height,
             };
 
             mwNew.Show();
         }
+        #endregion
 
-        private void Play()
+        /////////////////////////////////////////////////////
+        ///5.工具函数
+        #region
+        private static string PatchProxyInfo()
         {
-            if (CurrentXtrUrl != null)
-            {
-                FlyleafME.Player.XtrQualityName = CurrentXtrUrl.QualityName;
-                FlyleafME.Player.OpenAsync(CurrentXtrUrl.Url);
-                CurrentXtrUrl = null;
-                return;
-            }
-            //20240215 debug:
-            //FlyleafME.Player.OpenAsync(SampleVideo);
+            if (settings == null) return "";
+            return $"\n代理：{settings.ProxyHost}:{settings.ProxyPort}";
         }
 
-        private void Window_Loaded(object sender, RoutedEventArgs e)
+        private XtrUrl FindXTRUrl(string urlName)
         {
-            if (Engine.IsLoaded)
-            {
-                LoadPlayer();
-                FlyleafME.Player = Player;
-                //20240215
-                CurrentXtrUrl = FindXTRUrl(DefaultCNUrlName);
-                //Player.XtrQualityName = DefaultCNUrlName;
-                //Play();
-                Player.UpdateXtrQualityNameAndNotify(CurrentXtrUrl.QualityName);
-                Player.UpdateAspectRatioNameAndNotify(DefaultAspectRatioName);
-            }
-            else
-            {
-                Engine.Loaded += (o, e) =>
-                {
-                    LoadPlayer();
-                    Utils.UIInvokeIfRequired(() => FlyleafME.Player = Player);
-                    //20240215
-                    CurrentXtrUrl = FindXTRUrl(DefaultCNUrlName);
-                    //Player.XtrQualityName = DefaultCNUrlName;
-                    //Play();
-                    Player.UpdateXtrQualityNameAndNotify(CurrentXtrUrl.QualityName);
-                    Player.UpdateAspectRatioNameAndNotify(DefaultAspectRatioName);
-                };
-            }
-
-            if (runOnce)
-                return;
-
-            runOnce = true;
-
-            if (App.CmdUrl != null)
-                Player.OpenAsync(App.CmdUrl);
-
-
-#if RELEASE
-            // Save Player's Config (First Run)
-            // Ensures that the Control's handle has been created and the renderer has been fully initialized (so we can save also the filters parsed by the library)
-            if (!playerConfig.Loaded)
-            {
-                try
-                {
-                    //Utils.AddFirewallRule();
-                    playerConfig.Save("Flyleaf.Config.json");
-                }
-                catch { }
-            }
-
-            // Stops Logging (First Run)
-            if (!Engine.Config.Loaded)
-            {
-                Engine.Config.LogOutput = null;
-                Engine.Config.LogLevel = LogLevel.Quiet;
-                //Engine.Config.FFmpegDevices  = false;
-
-                try
-                { Engine.Config.Save("Flyleaf.Engine.json"); }
-                catch { }
-            }
-#endif
-
+            return XtrUrls.Find(item => item.QualityName == urlName);
         }
 
+        private Config DefaultConfig()
+        {
+            Config config = new Config();
+            config.Audio.FiltersEnabled = true;         // To allow embedded atempo filter for speed
+            config.Video.GPUAdapter = "";           // Set it empty so it will include it when we save it
+            config.Subtitles.SearchLocal = true;
+            return config;
+        }
+
+        public void Log(string msg)
+        {
+            //Console.WriteLine(msg);
+            Debug.WriteLine(msg);
+        }
+
+        private static string GetApplicationVersion()
+        {
+            System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
+            System.Version version = assembly.GetName().Version;
+            if (version == null)
+                return "";
+            return $" V{version.Major:D}.{version.Minor:D}.{version.Build:D4}.{version.Revision:D4}";
+        }
+        #endregion
+
+        /////////////////////////////////////////////////////
+        ///6. 控件控制与消息显示
+        #region
+        private void ShowAppInfoTips()
+        {
+            string info = "1、播放源\n" +
+                "为动态网“动态网网站指南”中“新唐人电视”所提供的三个不同清晰度的中国频道播放源。\n" +
+                "2、工作方式\n" +
+                "借助自由门或无界，及其提供的代理端口（默认值为8580）来读取数据。所以，使用播放器时需要检查自由门或无界是否正常联网，其提供的代理端口是否为默认值。此外，您也可以修改 settings.json 来设置合适的代理。\n" +
+                "3、播放中断的处理\n" +
+                "播放器可以根据自由门或无界连接状态，自动应对播放中断的" +
+                "状况以连续播放节目。因其依靠自由门或无界的连接，因此播放中断时间较长时，请及时检查自由门或无界的运行状态。";
+            MessageBox.Show(this, info, "新唐人中国频道播放器简要说明", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void MessageBoxErrorWithoutResultOnUI(string message)
+        {
+            this.Dispatcher.Invoke(() =>
+            {
+                MessageBox.Show(this, message, "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            });
+        }
+
+        private bool MessageBoxInformation(string message)
+        {
+            return MessageBox.Show(this, message, "提示", MessageBoxButton.OK, MessageBoxImage.Information) == MessageBoxResult.OK;
+        }
+
+        private bool MessageBoxError(string message)
+        {
+            return MessageBox.Show(this, message, "错误", MessageBoxButton.OK, MessageBoxImage.Error) == MessageBoxResult.OK;
+        }
+
+        private bool MessageBoxQuestion(string message)
+        {
+            return MessageBox.Show(this, message, "询问", MessageBoxButton.OKCancel, MessageBoxImage.Question) == MessageBoxResult.OK;
+        }
+        #endregion
+
+        /////////////////////////////////////////////////////
+        ///7. 一般控件事件
+        #region
         private void BtnMinimize_Click(object sender, RoutedEventArgs e) => FlyleafME.IsMinimized = true;
         private void BtnClose_Click(object sender, RoutedEventArgs e) => Close();
+        private void BtnHelp_Click(object sender, RoutedEventArgs e)
+        {
+            ShowAppInfoTips();
+        }
+        #endregion
 
+        /////////////////////////////////////////////////////
+        ///8.OSD Msg
         #region OSD Msg
         CancellationTokenSource cancelMsgToken = new();
         public string Msg { get => msg; set { cancelMsgToken.Cancel(); msg = value; PropertyChanged?.Invoke(this, new(nameof(Msg))); cancelMsgToken = new(); Task.Run(FadeOutMsg, cancelMsgToken.Token); } }
@@ -525,39 +684,8 @@ namespace XTRPlayer
         }
         #endregion
 
-        private static string GetApplicationVersion()
-        {
-            System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            System.Version version = assembly.GetName().Version;
-            if (version == null)
-                return "";
-            return $" V{version.Major:D}.{version.Minor:D}.{version.Build:D4}.{version.Revision:D4}";
-        }
 
-        private void BtnHelp_Click(object sender, RoutedEventArgs e)
-        {
-            ShowAppInfoTips();
-        }
 
-        private void ShowAppInfoTips()
-        {
-            string info = "1、播放源\n" +
-                "为动态网“动态网网站指南”中“新唐人电视”所提供的三个不同清晰度的中国频道播放源。\n" +
-                "2、工作方式\n" +
-                "借助自由门或无界，及其提供的代理端口8580来读取数据。所以，使用播放器时需要检查自由门或无界是否正常联网，其提供的代理端口是否为8580。\n" +
-                "3、播放中断的处理\n" +
-                "播放器可以根据自由门或无界连接状态，自动应对播放中断的" +
-                "状况以连续播放节目。因其依靠自由门或无界的连接，因此播放中断时间较长时，请及时检查自由门或无界的运行状态。";
-            MessageBox.Show(this, info, "新唐人中国频道播放器简要说明", MessageBoxButton.OK, MessageBoxImage.Information);
-        }
 
-        private void Window_Initialized(object sender, EventArgs e)
-        {
-            if (!File.Exists(Directory.GetCurrentDirectory() + "\\Flyleaf.UIConfig.json"))
-            {
-                Utils.Log("Flyleaf.UIConfig.json 不存在……");
-                ShowAppInfoTips();
-            }
-        }
     }
 }

@@ -5,13 +5,13 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <RootNamespace>XTRPlayer</RootNamespace>
     <UseWPF>true</UseWPF>
-    <AssemblyName>XTRPlayer</AssemblyName>
+    <AssemblyName>新唐人中国频道播放器</AssemblyName>
     <ApplicationIcon>xtr.ico</ApplicationIcon>
     <Platforms>AnyCPU;x86;x64</Platforms>
-    <Copyright>Ming © 2024</Copyright>
-    <Authors>Ming</Authors>
-    <AssemblyVersion>1.1.2024.0320</AssemblyVersion>
-    <FileVersion>1.1.2024.0320</FileVersion>
+    <Copyright></Copyright>
+    <Authors></Authors>
+    <AssemblyVersion>1.2.2025.0312</AssemblyVersion>
+    <FileVersion>1.2.2025.0312</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -30,6 +30,7 @@
 
   <ItemGroup>
     <PackageReference Include="MaterialDesignThemes" Version="5.0.0-ci480" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>
