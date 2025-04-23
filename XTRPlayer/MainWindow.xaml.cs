@@ -1,20 +1,22 @@
-﻿using System;
+﻿using FlyleafLib;
+using FlyleafLib.Controls.WPF;
+using FlyleafLib.MediaPlayer;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.NetworkInformation;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
-using FlyleafLib;
-using FlyleafLib.Controls.WPF;
-using FlyleafLib.MediaPlayer;
-using Newtonsoft.Json;
 
 namespace XTRPlayer
 {
@@ -90,6 +92,19 @@ namespace XTRPlayer
 
         private static string APP_PATH = Directory.GetCurrentDirectory();
         private string SETTINGS_JSON_FILE = APP_PATH + @"\settings.json";
+        private static string FFMPEG_PATH = APP_PATH + @"\FFmpeg";
+        private List<string> FFMPEG_FILES = new List<string>()
+        {
+            "avcodec-61.dll",
+            "avdevice-61.dll",
+            "avfilter-10.dll",
+            "avformat-61.dll",
+            "avutil-59.dll",
+            "postproc-58.dll",
+            "swresample-5.dll",
+            "swscale-8.dll"
+        };
+        private string README_FILE = APP_PATH + @"\readme.md";
         #endregion
 
         /////////////////////////////////////////////////////
@@ -139,6 +154,10 @@ namespace XTRPlayer
 
         private void Window_Initialized(object sender, EventArgs e)
         {
+            //1.
+            if (!CheckFFMpegFiles())
+                return;
+            //2.
             if (!File.Exists(Directory.GetCurrentDirectory() + "\\Flyleaf.UIConfig.json"))
             {
                 Utils.Log("Flyleaf.UIConfig.json 不存在……");
@@ -262,6 +281,40 @@ namespace XTRPlayer
             {
                 Log(e1.Message);
             }
+        }
+
+        private bool CheckFFMpegFiles()
+        {
+            if (!Path.Exists(FFMPEG_PATH))
+            {
+                MessageBoxError("没有找到FFmpeg目录以及程序需要的dll文件！\n程序需要这些文件才能播放节目，请按照打开的说明文件下载！");
+                System.Diagnostics.Process.Start("notepad.exe", README_FILE);
+                Environment.Exit(0);
+                return false;
+            }
+            List<string> files = new List<string>();
+            DirectoryInfo root = new DirectoryInfo(FFMPEG_PATH);
+            foreach (FileInfo f in root.GetFiles())
+            {
+                files.Add(f.Name);
+            }
+            var neededFiles = FFMPEG_FILES.Except(files).ToList<string>();
+            if (neededFiles.Count > 0)
+            {
+                StringBuilder sb = new StringBuilder();
+                for (int i = 0; i < neededFiles.Count; i++)
+                {
+                    if (i < neededFiles.Count - 1)
+                        sb.Append(neededFiles[i]).Append("、");
+                    else
+                        sb.Append(neededFiles[i]);
+                }
+                MessageBoxError($"没有在程序FFmpeg目录下找到所需要的{neededFiles.Count}个dll文件：{sb.ToString()}！\n程序需要这些文件才能播放节目，请按照打开的说明文件下载！");
+                System.Diagnostics.Process.Start("notepad.exe", README_FILE);
+                Environment.Exit(0);
+                return false;
+            }
+            return true;
         }
         #endregion
 
@@ -629,7 +682,7 @@ namespace XTRPlayer
             string info = "1、播放源\n" +
                 "为动态网“动态网网站指南”中“新唐人电视”所提供的三个不同清晰度的中国频道播放源。\n" +
                 "2、工作方式\n" +
-                "借助自由门或无界，及其提供的代理端口（默认值为8580）来读取数据。所以，使用播放器时需要检查自由门或无界是否正常联网，其提供的代理端口是否为默认值。此外，您也可以修改 settings.json 来设置合适的代理。\n" +
+                "借助自由门或无界，及其提供的代理来读取数据。所以，使用播放器时需要检查自由门或无界是否正常联网，以及使用环境所提供的代理是否正确。如果代理改变，请关闭程序并修改 settings.json ，从新运行程序即可。\n" +
                 "3、播放中断的处理\n" +
                 "播放器可以根据自由门或无界连接状态，自动应对播放中断的" +
                 "状况以连续播放节目。因其依靠自由门或无界的连接，因此播放中断时间较长时，请及时检查自由门或无界的运行状态。";

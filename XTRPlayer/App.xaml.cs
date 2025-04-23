@@ -1,15 +1,15 @@
-﻿using System;
+﻿using FlyleafLib;
+using System;
 using System.IO;
 using System.Threading;
 using System.Windows;
-
-using FlyleafLib;
 
 namespace XTRPlayer
 {
     public partial class App : Application
     {
         public static string CmdUrl { get; set; } = null;
+        public static string EnginePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Flyleaf.Engine.json");
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -25,14 +25,14 @@ namespace XTRPlayer
             EngineConfig engineConfig;
 
             // Engine's Config
-            #if RELEASE
-            if (File.Exists("Flyleaf.Engine.json"))
-                try { engineConfig = EngineConfig.Load("Flyleaf.Engine.json"); } catch { engineConfig = DefaultEngineConfig(); }
+#if RELEASE
+            if (File.Exists(EnginePath))
+                try { engineConfig = EngineConfig.Load(EnginePath); } catch { engineConfig = DefaultEngineConfig(); }
             else
                 engineConfig = DefaultEngineConfig();
-            #else
+#else
             engineConfig = DefaultEngineConfig();
-            #endif
+#endif
 
             Engine.StartAsync(engineConfig);
         }
@@ -41,21 +41,20 @@ namespace XTRPlayer
         {
             EngineConfig engineConfig = new EngineConfig();
 
-            engineConfig.PluginsPath    = ":Plugins";
-            engineConfig.FFmpegPath     = ":FFmpeg";
-            engineConfig.FFmpegHLSLiveSeek
-                                        = true;
-            engineConfig.UIRefresh      = true;
-            engineConfig.FFmpegDevices  = true;
+            engineConfig.PluginsPath = ":Plugins";
+            engineConfig.FFmpegPath = ":FFmpeg";
+            engineConfig.FFmpegHLSLiveSeek = true;
+            engineConfig.UIRefresh = true;
+            engineConfig.FFmpegDevices = true;
 
-            #if RELEASE
-            engineConfig.LogOutput      = "Flyleaf.FirstRun.log";
+#if RELEASE
+            engineConfig.LogOutput      = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Flyleaf.FirstRun.log");
             engineConfig.LogLevel       = LogLevel.Debug;
-            #else
-            engineConfig.LogOutput      = ":debug";
-            engineConfig.LogLevel       = LogLevel.Debug;
-            engineConfig.FFmpegLogLevel = FFmpegLogLevel.Warning;
-            #endif
+#else
+            engineConfig.LogOutput = ":debug";
+            engineConfig.LogLevel = LogLevel.Debug;
+            engineConfig.FFmpegLogLevel = Flyleaf.FFmpeg.LogLevel.Warn;
+#endif
 
             return engineConfig;
         }
