@@ -22,8 +22,8 @@
 |開發工具	|VS2022 社區版|
 |語言|C#|
 |DotNet|8.0|
-|Nuget引用庫|Dragablz, FFmpeg.AutoGen, MaterialDesignThemes, Vortice.D3Dcompiler, Vortice.Direct3D11, Vortice.DirectComposition, Vortice.Mathematics, Vortice.MediaFoundation, Vortice.Xaudio2, wpfColorFontDialog|
-|添加且修改的專案|	Flyleaf-3.7.44（https://github.com/SuRGeoNix/Flyleaf），因原始程式碼需要修改才能使用，所以將其引入，做了代碼簡化，以及少量和必要的改動。|
+|Nuget引用庫|Dragablz, Flyleaf.FFmpeg.Bindings, MaterialDesignThemes, Newtonsoft.Json, Vortice.D3Dcompiler, Vortice.Direct3D11, Vortice.DirectComposition, Vortice.Mathematics, Vortice.MediaFoundation, Vortice.Xaudio2, wpfColorFontDialog|
+|添加且修改的專案|	Flyleaf-3.8.2（https://github.com/SuRGeoNix/Flyleaf），因原始程式碼需要修改才能使用，所以將其引入，做了代碼簡化，以及少量和必要的改動。|
 
 程式調試時，需要參考“三、使用前的準備”中第2部分，將ffmpeg相關的8個dll檔放在所生成可執行程序位置的\FFmpeg目錄下。發佈程式時，需要把FFmpeg目錄及檔複製於與主程序同一位置。
 
@@ -35,10 +35,8 @@
 https://download.visualstudio.microsoft.com/download/pr/f18288f6-1732-415b-b577-7fb46510479a/a98239f751a7aed31bc4aa12f348a9bf/windowsdesktop-runtime-8.0.1-win-x64.exe
 
 2、下載ffmpeg相關檔（用於播放視頻）
-下載 https://github.com/GyanD/codexffmpeg/releases/download/5.1.2/ffmpeg-5.1.2-full_build-shared.7z ，解壓後，複製其 bin 目錄下除了exe檔之外的所有dll檔至程式的FFMpeg目錄下。
+下載 https://www.gyan.dev/ffmpeg/builds/packages/ffmpeg-7.1.1-full_build-shared.7z ，解壓後，複製其 bin 目錄下除了exe檔之外的所有dll檔至程式的FFMpeg目錄下。
 
-> FFmpeg庫，可使用Flyleaf代碼附帶的FFmpeg目錄下的dll檔，也可使用Flyleaf引用的FFmpeg.AutoGen所引用的codexffmpeg庫發佈的release版（https://github.com/GyanD/codexffmpeg/releases/download/5.1.2/ffmpeg-5.1.2-full_build-shared.7z ），其下bin目錄下麵的同名 dll 檔。也就是說，我們也可自己審核和編譯codexffmpeg。
-補充說明下：Flyleaf沒有直接使用ffmpeg-5.1.2編譯的dll，是為了解決***fixes #146***，此不影響我們程式的運行。
 
 ## 四、使用簡要說明
 
@@ -77,4 +75,10 @@ https://github.com/SuRGeoNix/Flyleaf
 https://github.com/BtbN/FFmpeg-Builds/releases
 
 ### 誠心感謝作者的付出！
+
+
+## 六、更新
+
+【20250322】
+更新 Flyleaf 版本至 V3.8.2。
 
