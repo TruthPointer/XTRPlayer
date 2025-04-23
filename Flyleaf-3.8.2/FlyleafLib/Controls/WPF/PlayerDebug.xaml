@@ -1,0 +1,145 @@
+﻿<UserControl x:Class="FlyleafLib.Controls.WPF.PlayerDebug"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:local="clr-namespace:FlyleafLib.Controls.WPF"
+             mc:Ignorable="d" 
+             d:DesignHeight="600" d:DesignWidth="800" x:Name="DebugControl" d:Background="White">
+    
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <local:TicksToTimeSpanConverter x:Key="TicksToTimeSpan"/>
+            <local:TicksToMilliSecondsConverter x:Key="TicksToMilliSeconds"/>
+
+            <Style x:Key="FlowTable" TargetType="StackPanel">
+                <Setter Property="Background" Value="{Binding BoxColor, ElementName=DebugControl}"/>
+                <Setter Property="Width" Value="340"/>
+                <Setter Property="VerticalAlignment" Value="Top"/>
+                <Setter Property="HorizontalAlignment" Value="Left"/>
+                <Setter Property="Margin" Value="0 10 10 0"/>
+            </Style>
+
+            <Style x:Key="TextHeader" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Courier New" />
+                <Setter Property="FontSize" Value="20"/>
+                <Setter Property="Foreground" Value="{Binding HeaderColor, ElementName=DebugControl}"/>
+                <Setter Property="TextAlignment" Value="Center"/>
+                <Setter Property="TextDecorations" Value="Underline"/>
+                <Setter Property="Margin" Value="0 5 0 10"/>
+            </Style>
+
+            <Style x:Key="TextInfo" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Courier New" />
+                <Setter Property="FontSize" Value="16"/>
+                <Setter Property="Width" Value="180"/>
+                <Setter Property="Foreground" Value="{Binding InfoColor, ElementName=DebugControl}"/>
+                <Setter Property="Margin" Value="10 0 0 0"/>
+            </Style>
+
+            <Style x:Key="TextValue" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="Courier New" />
+                <Setter Property="FontSize" Value="16"/>
+                <Setter Property="Foreground" Value="{Binding ValueColor, ElementName=DebugControl}"/>
+                <Setter Property="TextWrapping" Value="Wrap"/>
+                <Setter Property="Width" Value="140"/>
+                <Setter Property="MaxHeight" Value="92"/>
+            </Style>
+        </ResourceDictionary>
+    </UserControl.Resources>
+    <StackPanel>
+        <!--<TextBlock HorizontalAlignment="Left" Background="{Binding BoxColor, ElementName=DebugControl}" Style="{StaticResource TextValue}" Padding="10" Width="690" TextWrapping="Wrap" Text="{Binding Player.Playlist.Url}"/>    -->
+        <Grid x:Name="rootGrid">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+
+        <Grid.RowDefinitions>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+
+
+        <StackPanel Grid.Column="0">
+            <!-- Video -->
+            <StackPanel Style="{StaticResource FlowTable}">
+                <TextBlock Style="{StaticResource TextHeader}" Text="视频"/>
+
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource TextInfo}" Text="编码"/>
+                    <TextBlock Style="{StaticResource TextValue}" Text="{Binding Player.Video.Codec}"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource TextInfo}" Text="宽高比"/>
+                    <TextBlock Style="{StaticResource TextValue}" Text="{Binding Player.Video.AspectRatio}"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal">
+                        <TextBlock Style="{StaticResource TextInfo}" Text="像素格式"/>
+                    <TextBlock Style="{StaticResource TextValue}" Text="{Binding Player.Video.PixelFormat}"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource TextInfo}" Text="宽"/>
+                    <TextBlock Style="{StaticResource TextValue}" Text="{Binding Player.Video.Width}"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource TextInfo}" Text="高"/>
+                    <TextBlock Style="{StaticResource TextValue}" Text="{Binding Player.Video.Height}"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource TextInfo}" Text="帧率"/>
+                    <TextBlock Style="{StaticResource TextValue}" Text="{Binding Player.Video.FPS, StringFormat={}{0:F2}}"/>
+                </StackPanel>
+                
+            </StackPanel>
+
+           
+        </StackPanel>
+
+        <StackPanel Grid.Column="1">
+            
+            <!-- Audio -->
+            <StackPanel Style="{StaticResource FlowTable}">
+                <TextBlock Style="{StaticResource TextHeader}" Text="音频"/>
+
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource TextInfo}" Text="音量"/>
+                    <TextBlock Style="{StaticResource TextValue}" Text="{Binding Player.Audio.Volume, StringFormat={}{0}%}"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource TextInfo}" Text="编码"/>
+                    <TextBlock Style="{StaticResource TextValue}" Text="{Binding Player.Audio.Codec}"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource TextInfo}" Text="通道"/>
+                    <TextBlock Style="{StaticResource TextValue}" Text="{Binding Player.Audio.Channels}"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource TextInfo}" Text="通道布局"/>
+                    <TextBlock Style="{StaticResource TextValue}" Text="{Binding Player.Audio.ChannelLayout}"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Style="{StaticResource TextInfo}" Text="采样格式"/>
+                    <TextBlock Style="{StaticResource TextValue}" Text="{Binding Player.Audio.SampleFormat}"/>
+                </StackPanel>
+
+                <StackPanel Orientation="Horizontal" Margin="0 0 0 10">
+                    <TextBlock Style="{StaticResource TextInfo}" Text="采样率"/>
+                    <TextBlock Style="{StaticResource TextValue}" Text="{Binding Player.Audio.SampleRate, StringFormat={}{0:N0} Hz}"/>
+                </StackPanel>
+            </StackPanel>
+        </StackPanel>            
+            
+            
+    </Grid>
+    </StackPanel>
+</UserControl>
+
