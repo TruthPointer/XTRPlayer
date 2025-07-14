@@ -44,7 +44,7 @@ https://download.visualstudio.microsoft.com/download/pr/f18288f6-1732-415b-b577-
 
 ![](./images/TipFor-Net.desktop-XTRPlayer.png)
 
-請點擊“Download it now”下載並安裝。
+請點擊“Download it now”下載並安裝。此種情況下下載安裝的是微軟最新版的net Core8運行時。
 
 2、初次運行程序，會顯示播放源等重要資訊。
 
