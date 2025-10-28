@@ -10,8 +10,8 @@
     <Platforms>AnyCPU;x86;x64</Platforms>
     <Copyright></Copyright>
     <Authors></Authors>
-    <AssemblyVersion>1.3.2025.0322</AssemblyVersion>
-    <FileVersion>1.3.2025.0322</FileVersion>
+    <AssemblyVersion>1.3.2025.1028</AssemblyVersion>
+    <FileVersion>1.3.2025.1028</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,7 +29,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="MaterialDesignThemes" Version="5.2.1" />
+    <PackageReference Include="MaterialDesignThemes" Version="5.1.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
