@@ -260,6 +260,21 @@
                                                           IsChecked="{Binding Player.Host.IsFullScreen}" ToolTip="全屏播放" 
                                                           Content="{materialDesign:PackIcon Kind=Fullscreen, Size=28}" 
                                                           materialDesign:ToggleButtonAssist.OnContent="{materialDesign:PackIcon Kind=FullscreenExit, Size=28}"/>
+                                <!--Toggle Proxy Button Player.Commands.SwitchProxy-->
+                                <Button Grid.Column="10" x:Name="PART_ContextMenuOwner_Proxies" Command="{Binding OpenContextMenu}" CommandParameter="{Binding RelativeSource={RelativeSource Self}}" ToolTip="切换代理">
+                                    <Button.Style>
+                                        <Style TargetType="Button" BasedOn="{StaticResource IconButton}">
+                                            <Setter Property="Content" Value="{materialDesign:PackIcon Kind=ServerNetworkOutline}"/>
+                                            <Setter  Property="ContextMenu">
+                                                <!--.SelectionChanged=""-->
+                                                <Setter.Value>
+                                                    <ContextMenu  Style="{StaticResource FlyleafContextMenu}"/>
+                                                </Setter.Value>
+                                            </Setter>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+                                
                             </Grid>
                         </Grid>
                     </materialDesign:Card>
