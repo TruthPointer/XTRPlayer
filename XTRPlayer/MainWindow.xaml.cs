@@ -32,7 +32,7 @@ namespace XTRPlayer
         const int ACTIVITY_TIMEOUT = 3500;
         public event PropertyChangedEventHandler PropertyChanged;
         //public static string FlyleafLibVer => "FlyleafLib v" + System.Reflection.Assembly.GetAssembly(typeof(Engine)).GetName().Version;
-        public static string FlyleafLibVer => "新唐人中国频道" + GetApplicationVersion() + PatchProxyInfo();
+        public static string FlyleafLibVer => "新唐人中国频道" + GetApplicationVersion();// + PatchProxyInfo();
         //public static string FlyleafLibVer = FlyleafLibVer1;
 
         /////////////////////////////////////////////////////
@@ -50,12 +50,16 @@ namespace XTRPlayer
         }
         public class Settings //20250208
         {
-            public string ProxyHost;
-            public int ProxyPort;
-            public Settings(string proxyHost, int proxyPort)
+            public List<string>? Proxies = null;
+            public int ProxyIndexSelected { get; set; }
+            [JsonIgnore]
+            public string ProxyHost = PROXY_HOST_DEFAULT;
+            [JsonIgnore]
+            public int ProxyPort = PROXY_PORT_DEFAULT;
+
+            public Settings(List<string> proxies)
             {
-                ProxyHost = proxyHost;
-                ProxyPort = proxyPort;
+                Proxies = proxies;
             }
         }
         #endregion
@@ -69,16 +73,17 @@ namespace XTRPlayer
         public ICommand CloseWindow { get; set; }
 
         static bool runOnce;
-        static Settings settings = new Settings(PROXY_HOST, PROXY_PORT);
+        static Settings settings = new Settings(new List<string>());
 
         Config playerConfig;
         bool ReversePlaybackChecked;
+        CancellationTokenSource cancellationToken = new CancellationTokenSource();
 
         string SampleVideo = Utils.FindFileBelow("Sample.mp4");
         const string URL_NTD = "http://cnhls.ntdtv.com";
         const string HOST_NTD = "ntdtv.com";
-        const string PROXY_HOST = "127.0.0.1";
-        const int PROXY_PORT = 8580;
+        const string PROXY_HOST_DEFAULT = "127.0.0.1";
+        const int PROXY_PORT_DEFAULT = 8580;
 
         List<XtrUrl> XtrUrls = new(){
             new ("低频宽", "http://cnhls.ntdtv.com/cn/live150/playlist.m3u8" ),//first.m3u8?
@@ -229,57 +234,58 @@ namespace XTRPlayer
 #endif
         }
 
-        private void ParseMainJson()
+        private bool ParseMainJson()
         {
             try
             {
                 if (!File.Exists(SETTINGS_JSON_FILE))
                 {
-                    SaveDefaultToMainJson();
-                    return;
+                    return false;
                 }
                 var jss = new JsonSerializerSettings();
                 string jsonText = File.ReadAllText(SETTINGS_JSON_FILE);
                 Settings s = JsonConvert.DeserializeObject<Settings>(jsonText, jss);
                 Log("ParseMainJson: Parse Json OK...");
-                if (!ValidateProxy(s)) return;
-                settings.ProxyHost = s.ProxyHost;
-                settings.ProxyPort = s.ProxyPort;
+                //
+                if (s == null || s.Proxies == null || s.Proxies.Count == 0) return false;
+                int removed = s.Proxies.RemoveAll(item => !Regex.IsMatch(item, "(\\d+.){3}\\d+:\\d{4,5}"));
+                if (s.Proxies.Count == 0)
+                {
+                    s.ProxyIndexSelected = -1;
+                    SaveSettings();
+                    return false;
+                }
+                if (removed > 0 || s.ProxyIndexSelected <= 0 || s.ProxyIndexSelected > s.Proxies.Count)
+                {
+                    s.ProxyIndexSelected = 1;
+                    SaveSettings();
+                }
+                settings = s;
+                ParseProxy(settings.Proxies[settings.ProxyIndexSelected - 1], out string proxyHost, out int proxyPort);
+                settings.ProxyHost = proxyHost;
+                settings.ProxyPort = proxyPort;
+                FlyleafBar.SetProxy(settings.Proxies, settings.ProxyIndexSelected - 1);//[]
                 Log("ParseMainJson: Check Proxy OK...");
+                return true;
             }
             catch (Exception e)
             {
                 Log("ParseMainJson ERROR: " + e.Message);
+                return false;
             }
         }
 
-        private bool ValidateProxy(Settings settings)
-        {
-            if (settings == null) return false;
-
-            if (settings.ProxyHost == null || !Regex.IsMatch(settings.ProxyHost, @"^([\w-]+\.)+[\w-]+(/[\w-./?%&=]*)?$"))
-            {
-                MessageBoxError("代理主机配置错误！\n请修改settings.json，并从新运行本程序。\n若不修改，程序将使用默认值。");
-                return false;
-            }
-            if (settings.ProxyPort < 1024 || settings.ProxyPort >= 65535)
-            {
-                MessageBoxError("代理端口配置错误，应在1024至65536之间！\n请修改settings.json，并从新运行本程序。\n若不修改，程序将使用默认值。");
-                return false;
-            }
-            return true;
-        }
-
-        private void SaveDefaultToMainJson()
+        private void SaveSettings()
         {
             try
             {
+                if (settings == null) return;
                 string json = JsonConvert.SerializeObject(settings, Formatting.Indented);
                 File.WriteAllText(SETTINGS_JSON_FILE, json);
             }
             catch (Exception e1)
             {
-                Log(e1.Message);
+                Log($"[E]SaveSettings: {e1.Message}");
             }
         }
 
@@ -321,6 +327,16 @@ namespace XTRPlayer
         /////////////////////////////////////////////////////
         ///4.播放控制
         #region
+        private void ChangeProxy()
+        {
+            if (playerConfig == null) return;
+            if (playerConfig.Demuxer.FormatOpt.ContainsKey("http_proxy"))
+            {
+                playerConfig.Demuxer.FormatOpt.Remove("http_proxy");
+            }
+            playerConfig.Demuxer.FormatOpt.Add("http_proxy", $"http://{settings.ProxyHost}:{settings.ProxyPort}/");//【PROXY: 3】
+        }
+
         private void LoadPlayer()
         {
             // NOTE: Loads/Saves configs only in RELEASE mode
@@ -392,12 +408,14 @@ namespace XTRPlayer
                 {
                     Utils.Log($"[Player.PlaybackStopped]: 从新播放：{Player.Playlist.Url}");
 
+                    cancellationToken.Cancel();
                     int delay = 1000;
                     if (Player.Status == Status.Failed || Player.Status == Status.Ended)
                     {
                         delay = 5000;
                     }
-                    CheckAndPlayback(delay);
+                    cancellationToken = new CancellationTokenSource();
+                    CheckAndPlayback(delay, cancellationToken.Token);
                 }
             };
             //监控播放异常，异常，则暂停5秒，再次尝试
@@ -412,14 +430,16 @@ namespace XTRPlayer
                 Player.IsShowProgress = true;// !e.Success;
                 if (!e.Success)
                 {
+                    cancellationToken.Cancel();
                     Utils.Log($"[Player.OpenCompleted]: 从新播放：{Player.Playlist.Url}");
                     //Player.PlayInfo = "播放出错，正在尝试从新播放，请耐心等待……";
-                    CheckAndPlayback(5000);
+                    cancellationToken = new CancellationTokenSource();
+                    CheckAndPlayback(5000, cancellationToken.Token);
                 }
                 else
                 {
                     //成功打开，处于缓冲数据状态
-                    CheckOpenState();
+                    CheckOpenState(/*cancellationToken.Token*/);
                 }
             };
 
@@ -457,6 +477,26 @@ namespace XTRPlayer
                     Utils.Log("[Changed]PropertyName: " + Player.AspectRatioName);
                     FlyleafME.Player.UpdateAspectRatioName(Player.AspectRatioName);
                 }*/
+                else if (e.PropertyName == nameof(Player.ProxyIndexChange))
+                {
+                    //1.
+                    settings.ProxyIndexSelected = Player.ProxyIndexChange + 1;
+                    string proxy = settings.Proxies[settings.ProxyIndexSelected - 1];
+                    ParseProxy(proxy, out string proxyHost, out int proxyPort);
+                    settings.ProxyHost = proxyHost;
+                    settings.ProxyPort = proxyPort;
+                    SaveSettings();
+                    Log($"MW：Player.ProxyChange [Player.ProxyIndexChange] ==> " + proxy);
+                    ChangeProxy();
+                    //2.
+                    Player.Stop();
+                    Player.PlayInfo = $"切换到新代理 {proxy}，正在尝试从新播放，请耐心等待……";
+                    Player.IsShowProgress = true;
+                    Utils.Log($"切换到新代理 {proxy}: 从新播放：{Player.Playlist.Url}");
+                    int delay = 3000;
+                    cancellationToken = new CancellationTokenSource();
+                    CheckAndPlayback(delay, cancellationToken.Token);
+                }
 
             };
 
@@ -499,10 +539,13 @@ namespace XTRPlayer
             if (CurrentXtrUrl != null)
             {
                 FlyleafME.Player.XtrQualityName = CurrentXtrUrl.QualityName;
-                FlyleafME.Player.OpenAsync(CurrentXtrUrl.Url);
-                CurrentXtrUrl = null;
-                return;
             }
+            else
+            {
+                CurrentXtrUrl = FindXTRUrl(DefaultCNUrlName);
+                FlyleafME.Player.XtrQualityName = CurrentXtrUrl.QualityName;
+            }
+            FlyleafME.Player.OpenAsync(CurrentXtrUrl.Url);
             //20240215 debug:
             //FlyleafME.Player.OpenAsync(SampleVideo);
         }
@@ -537,46 +580,65 @@ namespace XTRPlayer
             }
         }
 
-        private async Task<bool> CheckInternetConnection()
+        private async Task<bool> CheckInternetConnection(CancellationToken cancellationToken)
         {
             try
             {
                 WebProxy myProxy = new WebProxy(settings.ProxyHost, settings.ProxyPort);
                 var httpClientHandler = new HttpClientHandler { Proxy = myProxy };
                 HttpClient client = new HttpClient(handler: httpClientHandler, disposeHandler: true);
-                using HttpResponseMessage response = await client.GetAsync(URL_NTD);
+                using HttpResponseMessage response = await client.GetAsync(URL_NTD, cancellationToken);
                 Utils.Log($"[CheckInternetConnection]: {response.StatusCode}");
                 return response.StatusCode == HttpStatusCode.OK;
             }
             catch (System.Exception e)
             {
                 Utils.Log("[CheckInternetConnection]: " + e.Message);
+                Player.PlayInfo = $"网络连接出错：{e.Message}";
+                Player.IsShowProgress = true;
                 return false;
             }
         }
 
-        private async void CheckAndPlayback(int delay)
+        private async void CheckAndPlayback(int delay, CancellationToken cancellationToken)
         {
             //1.
             while (true)
             {
-                /*await Task.Run(async delegate
+                if (cancellationToken.IsCancellationRequested)
                 {
-                    await Task.Delay(delay);
-                });*/
+                    Utils.Log("[CheckAndPlayback]: 当前网络检测被取消...");
+                    Player.PlayInfo = null;
+                    Player.IsShowProgress = false;
+                    break;
+                }
                 await Task.Delay(delay);
-                if (await CheckInternetConnection())
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    Utils.Log("[CheckAndPlayback]: 当前网络检测被取消...");
+                    Player.PlayInfo = null;
+                    Player.IsShowProgress = false;
+                    break;
+                }
+                if (await CheckInternetConnection(cancellationToken))
                 {
                     Utils.Log("[CheckAndPlayback]: 网络连接正常");
+                    Player.PlayInfo = null;
+                    Player.IsShowProgress = false;
                     break;
                 }
                 Utils.Log($"[CheckAndPlayback]: 网络连接不正常，继续等待 {delay} ms……");
             }
-            Utils.Log("[CheckAndPlayback]: 网络连接正常，尝试从新播放……");
-            Player.OpenAsync(Player.Playlist.Url);
+            if (CurrentXtrUrl == null)
+            {
+                CurrentXtrUrl = FindXTRUrl(DefaultCNUrlName);
+                FlyleafME.Player.XtrQualityName = CurrentXtrUrl.QualityName;
+            }
+            Utils.Log($"[CheckAndPlayback]: 网络连接正常，尝试从新播放 [{CurrentXtrUrl.Url}]……");
+            Player.OpenAsync(CurrentXtrUrl.Url);
             //2.
 
-            CheckOpenState();
+            CheckOpenState(/*cancellationToken*/);
         }
 
         private void CheckOpenState()
@@ -584,7 +646,7 @@ namespace XTRPlayer
             if (IsCheckOpenAsyncRunning)
                 return;
             Utils.Log("[CheckAndPlayback] ……");
-            Task.Run(async () =>
+            Task.Run(action: async () =>
             {
                 IsCheckOpenAsyncRunning = true;
                 while (true)
@@ -605,7 +667,8 @@ namespace XTRPlayer
                         break;
                     }
                 }
-            });
+            }/*, 
+            cancellationToken: cancellationToken*/);
         }
 
         private static MainWindow GetWindowFromPlayer(Player player)
@@ -672,6 +735,22 @@ namespace XTRPlayer
                 return "";
             return $" V{version.Major:D}.{version.Minor:D}.{version.Build:D4}.{version.Revision:D4}";
         }
+
+        private void ParseProxy(string proxy, out string proxyHost, out int proxyPort)
+        {
+            var groups = Regex.Match(proxy, "((\\d+.){3}\\d+):(\\d{4,5})").Groups;
+            if (groups.Count == 4)
+            {
+                proxyHost = groups[1].Value;
+                proxyPort = Int32.Parse(groups[3].Value);
+            }
+            else
+            {
+                proxyHost = "";
+                proxyPort = 0;
+            }
+        }
+
         #endregion
 
         /////////////////////////////////////////////////////

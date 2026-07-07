@@ -10,8 +10,8 @@
     <Platforms>AnyCPU;x86;x64</Platforms>
     <Copyright></Copyright>
     <Authors></Authors>
-    <AssemblyVersion>1.3.2025.1028</AssemblyVersion>
-    <FileVersion>1.3.2025.1028</FileVersion>
+    <AssemblyVersion>1.4.2026.0707</AssemblyVersion>
+    <FileVersion>1.4.2026.0707</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>
