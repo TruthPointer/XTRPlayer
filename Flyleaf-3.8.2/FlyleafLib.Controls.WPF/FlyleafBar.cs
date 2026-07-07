@@ -1,11 +1,11 @@
-﻿using System;
+﻿using FlyleafLib.MediaPlayer;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-
-using FlyleafLib.MediaPlayer;
 
 namespace FlyleafLib.Controls.WPF
 {
@@ -24,6 +24,10 @@ namespace FlyleafLib.Controls.WPF
         ContextMenu popUpMenuSubtitles, popUpMenuVideo;
         bool initialized = false;
 
+        FrameworkElement frameworkElementProxy;
+        static List<string> proxies = new List<string> ();
+        static int selectedProxy = 0;
+
         public override void OnApplyTemplate()
         {
             base.OnApplyTemplate();
@@ -33,6 +37,7 @@ namespace FlyleafLib.Controls.WPF
 
             initialized = true;
 
+            frameworkElementProxy = (FrameworkElement)Template.FindName("PART_ContextMenuOwner_Proxies", this);
             popUpMenuSubtitles  = ((FrameworkElement)Template.FindName("PART_ContextMenuOwner_Subtitles", this))?.ContextMenu;
             popUpMenuVideo      = ((FrameworkElement)Template.FindName("PART_ContextMenuOwner_Video", this))?.ContextMenu;
 
@@ -57,6 +62,12 @@ namespace FlyleafLib.Controls.WPF
             DefaultStyleKeyProperty.OverrideMetadata(typeof(FlyleafBar), new FrameworkPropertyMetadata(typeof(FlyleafBar)));
         }
 
+        public static void SetProxy(List<string> proxyList, int index)
+        {
+            proxies = proxyList;
+            selectedProxy = index;
+        }
+
         public ICommand OpenSettingsCmd { get; set; }
         public void OpenSettingsAction(object obj)
         {
@@ -69,6 +80,24 @@ namespace FlyleafLib.Controls.WPF
             FrameworkElement element = (FrameworkElement)obj;
             if (element == null || element.ContextMenu == null)
                 return;
+
+
+            if (element == frameworkElementProxy)
+            {
+                element.ContextMenu.Items.Clear();
+                for (int i = 0; i < proxies.Count; i++)
+                {
+                    MenuItem mi = new MenuItem() { Header = proxies[i], IsCheckable = true, IsChecked = (selectedProxy == i) };
+                    mi.Checked += (o, e) =>
+                    {
+                        string proxyName = (o as MenuItem).Header.ToString();
+                        selectedProxy = proxies.IndexOf(proxyName);
+                        Player.UpdateProxyIndexChangeAndNotify(selectedProxy);
+                        Utils.Log($"mi.Checked [{selectedProxy}]: {proxyName}");
+                    };
+                    element.ContextMenu.Items.Add(mi);
+                }
+            }
 
             element.ContextMenu.PlacementTarget = element;
             element.ContextMenu.IsOpen = true;
