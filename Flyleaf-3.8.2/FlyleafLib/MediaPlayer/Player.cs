@@ -400,6 +400,22 @@ public unsafe partial class Player : NotifyPropertyChanged, IDisposable
     }
 
     //---------------------------------------------------
+    //20260706
+    public int ProxyIndexChange { get; set; } = 0;
+
+    public void UpdateProxyIndexChange(int index)
+    {
+        ProxyIndexChange = index;
+    }
+
+    public void UpdateProxyIndexChangeAndNotify(int index)
+    {
+        Utils.Log("UpdateProxyIndexChangeAndNotify -->" + index);
+        ProxyIndexChange = index;
+        Raise(nameof(ProxyIndexChange));
+    }
+
+    //---------------------------------------------------
     //20240115
     public string XtrQualityName { get; set; } = "";
 
